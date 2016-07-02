@@ -1,0 +1,5 @@
+set = new LinkedHashSet()
+set.addAll(_1)
+set.each {
+	println it
+}

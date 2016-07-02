@@ -1,0 +1,20 @@
+import java.util.jar.*
+
+def jar = args[0]
+
+def jarFile = new JarFile(jar)
+
+try {
+	def entries = jarFile.entries()
+	while (entries.hasMoreElements()) {
+		if(args.length == 2) {
+			args[1].doCall(entries.nextElement().getName())
+		} else {
+			println entries.nextElement().getName()
+		}
+	}
+} finally {
+	if (jarFile != null) {
+		jarFile.close()
+	}
+}

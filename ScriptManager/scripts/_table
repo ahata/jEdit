@@ -1,0 +1,113 @@
+import tools.excel.Border.Direction
+
+def error(msg) {
+	throw new Exception(msg)
+}
+
+def visitedCells = new HashSet()
+
+class InvalidCellException extends Exception {
+	def direction
+}
+
+// 各コンテナは左上のセルで特定
+// 全ての┌があるセルに対して、
+
+def findRight(sheet, cell) {
+	final int rowIndex = cell.getRowIndex()
+	final int colStart = cell.getColumnIndex()
+	final int leftMost = colStart
+	
+	def row = sheet.row(rowIndex)
+	for(def i=colStart; i < 100; i++) {
+		def c = row.cell(i)
+		if(!c.hasBorder(Direction.top)) {
+			return []
+		}
+		if(c.hasBorder(Direction.right)) {
+			def coords = findBottom(sheet, c, leftMost)
+			if(coords) {
+				coords.add(0, i)
+				return coords
+			}
+		}
+	}
+	// 最大探す列数をオーバー
+	return []
+}
+
+def findBottom(sheet, cell, final leftMost) {
+	final int rowStart = cell.getRowIndex()
+	final int colIndex = cell.getColumnIndex()
+	
+	for(def i=rowStart; i < 100; i++) {
+		def c = sheet.row(i).cell(colIndex)
+		if(!c.hasBorder(Direction.right)) {
+			return []
+		}
+		if(c.hasBorder(Direction.bottom)) {
+			//println "findBottom=>${i}"
+			def coords = findLeft(sheet, c, leftMost)
+			if(coords) {
+				coords.add(0, i)
+				return coords
+			}
+		}
+	}
+	return []
+}
+
+def findLeft(sheet, cell, final leftMost) {
+	final int rowIndex = cell.getRowIndex()
+	final int colStart = cell.getColumnIndex()
+	
+	def row = sheet.row(rowIndex)
+	for(def i=colStart; i >= leftMost; i--) {
+		def c = row.cell(i)
+		if(!c.hasBorder(Direction.bottom)) {
+			return []
+		}
+		if(i == leftMost) {
+			if(c.hasBorder(Direction.left)) {
+				return [i]
+			} else {
+				return []
+			}
+		}
+	}
+}
+
+new File(/E:\住友電工\02_資料庫\03_設計書\詳細設計\SWK0050_商品マスタ参照.XLS/).excel {wb->
+	def sheet = wb.sheet('画面ｲﾒｰｼﾞ（商品一覧画面）')
+	def start = "E75"
+	def cell = sheet.cell(start)
+	println findRight(sheet, cell)
+	return
+	def startRow = cell.rowIndex
+	def startCol = cell.colIndex
+	
+	//top(8), bottom(9), left(7), right(10);
+	if(!cell.hasBorder(Direction.left) || !cell.hasBorder(Direction.top)) {
+		error("開始セルの設定が不正です。")
+	}
+	def rows = []
+	def parsing = null
+	for(i=startRow;i<100;i++) {
+		def rowObj = [cells:[]]
+		def row = sheet.row(i)
+		for(j=startCol;j<100;j++) {
+			if(visitedCells.contains("${i}:${j}" as String)) {
+				continue
+			}
+			cell = row.cell(j)
+			if(cell.hasBorder(Direction.left) && cell.hasBorder(Direction.top)) {
+				// 左上のセル（開始セル）
+				parsing = [cell]
+				
+			}
+		}
+		if(rowObj.cells) {
+			rows << rowObj
+		}
+	}
+}

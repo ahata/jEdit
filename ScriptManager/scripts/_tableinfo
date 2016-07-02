@@ -1,0 +1,51 @@
+def parseResultSet(rs) {
+	def list = []
+	try {
+		while(rs.next()) {
+			list << rs.toRowResult()
+		}
+	} finally {
+		rs?.close()
+	}
+	return list
+}
+
+def getTableInfo(connection, name) {
+	def meta = connection.metaData
+	def schema = meta.userName
+	def rs = meta.getTables(null, schema, name.toUpperCase(), ['TABLE'] as String[])
+	if(!rs.next()) {
+		throw new Exception("テーブルが見つかりません。${name}")
+	}
+	def it = rs.toRowResult()
+	def pName = it.TABLE_NAME
+	def keys = []
+	def cols = []
+	def pkNames = parseResultSet(meta.getPrimaryKeys(null, schema, pName)).collect {
+		it.COLUMN_NAME
+	}
+	parseResultSet(meta.getColumns(null, schema, pName, '%')).each {col->
+		def c = [:]
+		c.defaultValue = col.COLUMN_DEF ?: ''
+		c.desc = col.REMARKS ?: ''
+		c.lName = col.REMARKS ?: ''
+		c.nullable = col.IS_NULLABLE == "YES"
+		c.pName = col.COLUMN_NAME
+		c."size" = (col.COLUMN_SIZE?.toString()) ?: ''
+		c.type = col.TYPE_NAME
+		if(c.pName in pkNames) {
+			c.key = true
+			keys << c
+		} else {
+			c.key = false
+		}
+		cols << c
+	}
+	def table = [:]
+	table.pName = pName
+	table.cols = cols
+	table.keys = keys
+	return table
+}
+
+getTableInfo(args[0], args[1])

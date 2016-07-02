@@ -1,0 +1,73 @@
+class Block {
+	
+	static final TYPES = ['Type', 'Function', 'Sub', 'Class', 'Module']
+	
+	String type
+	String name
+	
+	List lines = []
+	List comments = []
+	List steps = []
+	
+	Block(type, name) {
+		this.type = type
+		this.name = name
+	}
+	
+	def consume(reader) {
+		def line
+		while((line = reader.readLine()) != null) {
+			lines << line
+			if(line =~ "^\\s*'.*") {
+				comments << line
+			} else {
+				if(line =~ '\\S+') {
+					steps << line
+				}
+			}
+			if(line =~ "^\\s*End \\s*${this.type}\\s*") {
+				return true
+			}
+		}
+		return false
+	}
+	
+	String toString() {
+		steps.join('\r\n')
+	}
+	
+	static Block begin(line) {
+		for(it in TYPES) {
+			def mch = line =~ "^\\s*\\w*\\s*${it}\\s+(\\w+).*"
+			if(mch) {
+				def block = new Block(it, mch[0][1])
+				block.lines << line
+				block.steps << line
+				return block
+			}
+		}
+		return null
+	}
+}
+
+def file
+if(args[0] instanceof File) {
+	file = args[0]
+} else if(args[0] instanceof String) {
+	file = new File(args[0])
+} else {
+	throw new RuntimeException("args[0] must be String Or File")
+}
+
+file.withReader {reader->
+	def line
+	def result = []
+	while((line = reader.readLine()) != null) {
+		def block = Block.begin(line)
+		if(block != null) {
+			block.consume(reader)
+			result << block
+		}
+	}
+	result
+}

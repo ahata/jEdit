@@ -1,0 +1,15 @@
+content = """\
+# encoding: UTF-8
+\$: << '${new File(_setting_, 'scripts/ruby').path.replace('\\', '/')}'
+${args[0]}
+"""
+
+def script = File.createTempFile("script", ".rb")
+script.write(content, 'UTF-8')
+
+def result = File.createTempFile("result", ".txt")
+result.withOutputStream {
+    "ruby ${script.path}".execute().waitForProcessOutput(it, it)
+}
+
+"emeditor \"${result.getCanonicalPath()}\"".execute()

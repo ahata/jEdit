@@ -1,0 +1,139 @@
+import tools.excel.util.*
+
+cellSpace = 4
+
+def parse(excel, sheetName, startRow, endRow, startCol, endCol, heights=[], widths=[]) {
+	if(startRow instanceof String) {
+		startRow = ExcelUtil.getRowIndex(startRow)
+	}
+	if(endRow instanceof String) {
+		endRow = ExcelUtil.getRowIndex(endRow)
+	}
+	if(startCol instanceof String) {
+		startCol = ExcelUtil.getColumnIndex(startCol)
+	}
+	if(endCol instanceof String) {
+		endCol = ExcelUtil.getColumnIndex(endCol)
+	}
+	def table = [:]
+	def colPadding = [0] * widths.size()
+	def rowPadding = [0] * heights.size()
+	table.toHTML = {
+		def html = []
+		table.rows.each {
+			it.cols.each {cell->
+				if(cell.type) {
+					html << """<div style="position:absolute;top:${cell.posy()}px;left:${cell.posx()}px;border:1px solid red;width:${cell.width()}px;height:${cell.height()}px;">${convert(cell.text)}</div>"""
+				}
+			}
+		}
+		return html.join("\r\n")
+	}
+	table.height = {
+		colPadding.sum() + widths.sum()
+	}
+	table.width = {
+		rowPadding.sum() + heights.sum()
+	}
+	_wb(excel) {wb->
+		def sheet = wb.getSheet(sheetName)
+		table.rows = []
+		for(i=startRow; i<=endRow; i++) {
+			def row = sheet.getRow(i)
+			def tr = [cols:[],height:0, width:0]
+			for(j=startCol; j<=endCol; j++) {
+				def td = [row:i-startRow, col:j-startCol]
+				def cell = row.getCell(j)
+				def (rowStart, rowEnd) = cell.getRowStartAndEnd()
+				def (colStart, colEnd) = cell.getColStartAndEnd()
+				
+				j += colEnd - colStart
+				if(rowStart < i) {
+					// skip rowspan
+					continue
+				}
+				td.rowSpan = rowEnd - rowStart + 1
+				td.colSpan = colEnd - colStart + 1
+				td.colorIndex = cell.getColorIndex()
+				td.text = cell.getText()?:""
+				td.width = {
+					def val = (0 ..< td.colSpan).collect {widths[td.col + it]}.sum()
+					for(x=td.col+1; x < td.col + td.colSpan; x++) {
+						val += colPadding[x]
+					}
+					return val
+				}
+				td.height = {
+					def val = (0 ..< td.rowSpan).collect {heights[td.row + it]}.sum()
+					for(x=td.row+1; x < td.row + td.rowSpan; x++) {
+						val += rowPadding[x]
+					}
+					return val
+				}
+				if(td.colorIndex == 37) {
+					// 見出しラベル
+					td.type = "LabelA"
+				}
+				if(td.colorIndex == 36) {
+					// 入力項目
+					if(td.text.indexOf("▼") >=0) {
+						// コンボボックス
+						td.type = "ComboBox"
+					} else {
+						// テキストボックス
+						td.type = "TextBox"
+					}
+				}
+				if(td.colorIndex == 34) {
+					// 名称ラベル
+					td.type = "LabelB"
+				}
+				td.posx = {
+					def x = 0
+					for(k=0; k < widths.size() && k <= td.col; k++) {
+						if(k < td.col) {
+							x += widths[k]
+						}
+						x += colPadding[k]
+					}
+					return x
+				}
+				td.posy = {
+					def y = 0
+					for(k=0; k < heights.size() && k <= td.row; k++) {
+						if(k < td.row) {
+							y += heights[k]
+						}
+						y += rowPadding[k]
+					}
+					return y
+				}
+				tr.cols << td
+				if(td.col > 0) {
+					colPadding[td.col] = cellSpace
+				}
+				if(td.row > 0) {
+					rowPadding[td.row] = cellSpace
+				}
+			}
+			if(!tr.cols.isEmpty()) {
+				table.rows << tr
+			}
+		}
+	}
+	return table
+}
+
+def convert(val) {
+	if(!val) {
+		return "&nbsp;"
+	}
+	return val.replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\r\n|\n", "<br>")
+}
+def (excel, sheet, startRow, endRow, startCol, endCol, heights, widths) = args
+parse(excel, sheet, startRow, endRow, startCol, endCol, heights, widths)
+//table = parse(/D:\home\zhaofeng\デスクトップ\layout1.xls/,"pnlTop","10","13","C","J",[20,20,20,20],[100,100,100,100,100,100,50,100])
+//println table.toHTML()
+//println table.height()
+//println table.width()
+

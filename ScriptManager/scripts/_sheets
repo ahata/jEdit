@@ -1,0 +1,18 @@
+import tools.excel.jacob.*
+
+if(args.length < 2) {
+	throw new Exception("parameter1: path of excel, parameter2: closure")
+}
+
+String excel = args[0]
+Closure c = args[1]
+
+def app = Application.start()
+try {
+	def wb = app.open(new File(excel))
+	wb.getAllSheets().each {sheet->
+		c.doCall(sheet)
+	}
+} finally {
+	app.end()
+}

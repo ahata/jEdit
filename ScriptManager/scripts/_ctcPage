@@ -1,0 +1,88 @@
+parse = {pageDefFile->
+	def all = []
+	_sheets(pageDefFile) {
+		if(it.getCellAt("A1").text.trim() != '項番') {return}
+		rowIndex = 2
+		while(true) {
+			def row = it.getRow(rowIndex)
+			def info = [*('A'..'F'),'I','J','K','M','N'].inject([:]) {item, colName->
+				item.put(colName, row.getCell(colName).getText())
+				item
+			}
+			info.put("name", it.name)
+			
+			def item = deal(info)
+			if(!item.id) {
+				break
+			}
+			if(item.use != '削除') {
+				all << item
+			}
+			rowIndex++
+		}
+	}
+	all
+}
+
+def deal(info) {
+	def rs = [:]
+	rs.page = info.name
+	rs.id = info["A"]
+	rs.use = info["B"]
+	rs.name = info["C"]
+	rs.jpName = info["D"]
+	rs.type = info["E"]
+	rs.size = info["F"]
+	rs.inputType = info["I"]
+	rs.like = info["J"]
+	rs.check = info["K"]
+	rs.table = info["M"]
+	rs.change = info["N"]
+	rs
+}
+
+// ディレクトリ準備
+def tmpDir = System.getProperty("tool.excel.tmpdir")
+if(!tmpDir) {
+  tmpDir = /c:\dbfiletmp/
+}
+new File(tmpDir).mkdirs()
+
+
+if(args[0] instanceof String) {
+	list = [args[0]]
+} else {
+	list = args[0]
+}
+
+result = []
+
+list.each {file->
+	def pageDefFile = new File(file)
+	def md5 = tools.md5.MD5Utils.getMD5(new ByteArrayInputStream(file.getBytes("utf-8")))
+	def objFile = new File(tmpDir, 'page_' + md5)
+
+	def pageItems
+	def update = {
+		pageItems = parse(pageDefFile)
+		objFile.withObjectOutputStream {oout->
+			oout << [pageDefFile.lastModified(), pageItems]
+		}
+	}
+	if(!objFile.exists()) {
+		update()
+	} else {
+		objFile.withObjectInputStream {oin->
+			def obj = oin.readObject()
+			
+			if(obj[0] < pageDefFile.lastModified()) {
+				update()
+			} else {
+				pageItems = obj[1]
+			}
+		}
+	}
+	result.addAll(pageItems)
+}
+
+result

@@ -1,0 +1,89 @@
+import org.apache.poi.hwpf.*
+import org.apache.poi.hwpf.usermodel.*
+import org.apache.poi.poifs.filesystem.*
+
+class TableInner {
+	@Delegate Table table
+	List rows
+}
+
+class RowInner {
+	@Delegate TableRow row
+	List cells
+}
+
+class CellInner {
+	@Delegate TableCell cell
+	String text
+	def getParagraphs() {
+		(0..<cell.numParagraphs()).collect {
+			new ParagraphInner(p:cell.getParagraph(it))
+		}
+	}
+	String toString() {
+		text
+	}
+}
+
+class ParagraphInner {
+	@Delegate Paragraph p
+	def getCharacterRuns() {
+		(0..<p.numCharacterRuns()).collect {
+			new CharacterRunInner(cr: p.getCharacterRun(it))
+		}
+	}
+	String getText() {
+		p.text().replaceAll("", "")
+	}
+}
+
+class CharacterRunInner {
+	@Delegate CharacterRun cr
+	def getParagraphs() {
+		(0..<cr.numParagraphs()).collect {
+			new ParagraphInner(p:cr.getParagraph(it))
+		}
+	}
+	String getText() {
+		cr.text().replaceAll("", "")
+	}
+}
+
+def input = new FileInputStream(args[0])
+try {
+	POIFSFileSystem pfs = new POIFSFileSystem(input)
+	HWPFDocument hwpf = new HWPFDocument(pfs)
+	Range range = hwpf.getRange()
+	TableIterator it = new TableIterator(range)
+	def tables = []
+	while (it.hasNext()) {
+		def table = it.next()
+		def rows = []
+		(0 ..< table.numRows()).each {i->
+			def row = table.getRow(i)
+			def cells = []
+			(0 ..< row.numCells()).each {j->
+				def cell = row.getCell(j)
+				def value = new StringBuilder()
+				(0 ..< cell.numParagraphs()).each {k->
+					if(k > 0) {
+						value << "\r\n"
+					}
+					def p = cell.getParagraph(k)
+					String s = p.text()
+					value << s.replaceAll("", "")
+				}
+				def td = new CellInner(cell: cell, text: value.toString())
+				cells << td
+			}
+			def tr = new RowInner(row: row, cells: cells)
+			rows << tr
+		}
+		def tb = new TableInner(table: table, rows: rows)
+		tables << tb
+	}
+	return tables
+} finally {
+	input.close()
+}
+

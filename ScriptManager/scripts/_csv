@@ -1,0 +1,4 @@
+println _1.collect {
+	t = it.split('\t', -1)
+	t.collect {"\"${it}\""}.join(",")
+}.join("\r\n")

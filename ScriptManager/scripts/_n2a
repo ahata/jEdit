@@ -1,0 +1,7 @@
+_1.each {
+	if(it =~ '^#') {
+		println it
+	} else {
+		println tools.text.Native2Ascii.saveConvert(it, false)
+	}
+}

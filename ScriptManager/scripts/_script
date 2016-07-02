@@ -1,0 +1,19 @@
+import org.codehaus.groovy.control.CompilerConfiguration
+
+SCRIPT_ENCODE = "UTF-8"
+def getScript(String path, ...args) {
+	def file = new File(path)
+	if(!file.isFile()) {
+		throw new Exception("スクリプト見つかりません。${path}")
+	}
+	file.withInputStream {input->
+		Reader script = new InputStreamReader(input, SCRIPT_ENCODE)
+		CompilerConfiguration config = new CompilerConfiguration()
+		config.setSourceEncoding(SCRIPT_ENCODE)
+		Script s = new GroovyShell(config).parse(script)
+		s.getBinding().setVariable("args", args)
+		s
+	}
+}
+
+getScript(args[0])

@@ -1,0 +1,2 @@
+pt = args[0]
+return "get${pt.substring(0,1).toUpperCase() + pt.substring(1)}"

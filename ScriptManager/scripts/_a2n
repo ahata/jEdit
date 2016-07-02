@@ -1,0 +1,3 @@
+_1.each {
+	println tools.text.Native2Ascii.loadConvert(it)
+}

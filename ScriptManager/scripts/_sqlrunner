@@ -1,0 +1,8 @@
+import java.sql.DriverManager
+import groovy.sql.Sql
+
+@Singleton class SqlRunner {
+
+}
+
+SqlRunner.instance

@@ -1,0 +1,8 @@
+import org.apache.velocity.app.Velocity
+import org.apache.velocity.VelocityContext
+
+Velocity.init()
+def context = new VelocityContext(args[1])
+def w = new StringWriter()
+Velocity.evaluate(context, w, "TPL", args[0] )
+return w.toString()

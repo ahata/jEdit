@@ -1,0 +1,17 @@
+def map2xml(map, ident) {
+	def result = new StringBuffer()
+	map.each {k,v->
+		def space = "\t" * ident
+		def sub = map2xml(v, ident + 1)
+		result.append(space).append("<${k}>")
+		if(sub) {
+			result.append("\n")
+			result.append(sub)
+			result.append(space)
+		}
+		result.append("</${k}>").append("\n")
+	}
+	return result
+}
+
+map2xml(args[0], 0)

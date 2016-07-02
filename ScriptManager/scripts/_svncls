@@ -1,0 +1,7 @@
+_walk(args[0]) {
+	if(it.name == '.svn') {
+		_rm(it)
+		return false
+	}
+	return true
+}

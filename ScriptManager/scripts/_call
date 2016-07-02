@@ -1,0 +1,12 @@
+def lib = System.getenv("LIB_DIR")
+
+File script = new File(args[0])
+if(!script.isAbsolute()) {
+	script = new File(lib, script.path)
+}
+
+if(!script.file) {
+	throw new Exception("script not found: ${args[0]}")
+}
+
+_engine_.run(script.path, binding)

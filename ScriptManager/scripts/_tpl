@@ -1,0 +1,20 @@
+import freemarker.ext.beans.BeansWrapper
+import freemarker.template.Configuration
+import freemarker.template.Template
+
+if(args.length == 2) {
+	text = args[0]
+	vars = args[1]
+} else if(args.length == 1) {
+	text = _1.join("\n")
+	vars = args[0]
+} else {
+	return ""
+}
+
+def config = new Configuration()
+config.setObjectWrapper(new BeansWrapper())
+def tpl = new Template("", new StringReader(text), config)
+def output = new StringWriter()
+tpl.process(vars, output)
+return output.toString()

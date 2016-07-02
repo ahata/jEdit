@@ -1,0 +1,77 @@
+import tools.excel.util.*
+
+def (path, sheetName, startRow, endRow, startCol, endCol) = args
+
+def key = "excelui" + _md5("${path}/${sheetName}/${startRow}/${endRow}/${startCol}/${endCol}")
+
+def file = new File(path)
+
+def objGen = {
+	def ALL = []
+	def NAME_MAP = [:]
+	
+	file.excel {wb->
+		wb.getNamedRanges().each {k,v->
+			String address = "${v.getSheetName()}!${v.address}"
+			NAME_MAP.put(address, k)
+		}
+		
+		def sheet = wb.sheet(sheetName)
+		startRow = sheet.rowIndex(startRow)
+		endRow = sheet.rowIndex(endRow)
+		startCol = sheet.colIndex(startCol)
+		endCol = sheet.colIndex(endCol)
+		
+		def matrix = new int[endRow - startRow + 1][endCol - startCol + 1]
+		
+		def heights = []
+		def widths = []
+		for(i=startRow; i <= endRow; i++) {
+			def row = sheet.row(i)
+			heights[i] = (int)(row.cell(startCol - 1).getHeightInPixel())
+		}
+		def sampleRow = sheet.row(startRow - 1)
+		for(j=startCol; j <= endCol; j++) {
+			widths[j] = (int)(sampleRow.cell(j).getWidthInPixel())
+		}
+		for(i=startRow; i <= endRow; i++) {
+			def row = null
+			for(j = startCol; j <= endCol; j++) {
+				if(matrix[i - startRow][j - startCol] != 0) {
+					continue
+				}
+				if(row == null) {
+					row = sheet.row(i)
+				}
+				def cell = row.cell(j)
+				def (a,b) = cell.getColStartAndEnd()
+				def (c,d) = cell.getRowStartAndEnd()
+				if(b - a >= 1 || d - c >= 1) {
+					// 結合セルはコンポネントとする
+					for(x in (c..d)) {
+						for(y in (a..b)) {
+							matrix[x - startRow][y - startCol] = 1
+						}
+					}
+					def control = [:]
+					control.name = NAME_MAP.get("${sheetName}!${cell.address}" as String)
+					control.width = (a .. b).collect {widths[it]}.sum()
+					control.height = (c .. d).collect {heights[it]}.sum()
+					control.top = (startRow ..< c).collect {heights[it]}.sum()
+					control.left = (startCol ..< a).collect {widths[it]}.sum()
+					control.text = cell.getText()
+					ALL.add(control)
+				}
+			}
+		}
+	}
+	
+	return [file.lastModified(), ALL]
+}
+
+def needUpdate = {
+	it[0] < file.lastModified()
+}
+
+_objcache(key, objGen, needUpdate)[1]
+

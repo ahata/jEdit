@@ -1,0 +1,21 @@
+import tools.excel.jacob.*
+
+def app = Application.start()
+try {
+  if(args.length < 1) {
+    throw new Exception("args.length < 1")
+  } else if(args.length == 1) {
+    // new empty excel file
+    args[-1].doCall(app.open())
+  } else {
+    args[0..-2].each {
+      if(it instanceof File) {
+        args[-1].doCall(app.open(it))
+      } else {
+        args[-1].doCall(app.open(new File(it)))
+      }
+    }
+  }
+} finally {
+  app.end()
+}

@@ -1,0 +1,72 @@
+parse = {
+	def all = [:]
+	_sheets(args[0]) {
+		if(it.getCellAt("A1").getText() != 'テーブル') return
+		rowIndex = 2
+		def one = []
+		all.put(it.getName(), one)
+		while(true) {
+			row = it.getRow(rowIndex)
+			id = row.getCell("B").getText()
+			if(!id) break
+			info = ('B'..'K').collect {colName->
+				row.getCell(colName).getText()
+			}
+			one << deal(info)
+			rowIndex++
+		}
+	}
+	all
+}
+
+def deal(info) {
+	def rs = [:]
+	rs.id = info[0]
+	rs.name = info[1]
+	rs.jpName = info[2]
+	rs.unique = info[3]
+	rs.inputType = info[4]
+	rs.size = info[5]
+	rs.content = info[6]
+
+	rs.from = info[7]
+	rs.process = info[8]
+	rs.change = info[9]
+	rs
+}
+
+def tableDefFile = new File(args[0])
+def md5 = tools.md5.MD5Utils.getMD5(new ByteArrayInputStream(args[0].getBytes("utf-8")))
+
+def tmpDir = System.getProperty("tool.excel.tmpdir")
+if(!tmpDir) {
+  tmpDir = /c:\dbfiletmp/
+}
+new File(tmpDir).mkdirs()
+
+def objFile = new File(tmpDir, 'csv_' + md5)
+
+def tableDefMap
+
+def update = {
+	tableDefMap = parse()
+	objFile.withObjectOutputStream {oout->
+		oout << [tableDefFile.lastModified(), tableDefMap]
+	}
+}
+
+if(!objFile.exists()) {
+	update()
+} else {
+	objFile.withObjectInputStream {oin->
+		def obj = oin.readObject()
+		
+		if(obj[0] < tableDefFile.lastModified()) {
+			update()
+		} else {
+			tableDefMap = obj[1]
+		}
+	}
+}
+
+return tableDefMap

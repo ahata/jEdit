@@ -1,0 +1,47 @@
+import org.dom4j.*
+import org.dom4j.io.*
+
+def xml = args[0] instanceof String? new File(args[0]): args[0]
+def reader = new SAXReader()
+reader.getDocumentFactory().setXPathNamespaceURIs(["ns":"http://schemas.microsoft.com/developer/msbuild/2003"])
+
+def project = reader.read(xml).getRootElement()
+def namespace = project.getNamespace()
+def refGroup = project.selectSingleNode("/ns:Project/ns:ItemGroup[child::ns:Reference]")
+
+ret = new Object()
+ret.metaClass.getDlls = {->
+refGroup.selectNodes("ns:Reference/@Include").collect {
+	def p = it.selectSingleNode("../ns:HintPath/text()")
+		[name: it.value, path: p?.text]
+	}
+}
+
+ret.metaClass.addDll = {String path->
+	File dll = path instanceof String ? new File(path): path
+	def dllName = dll.name[0..-5]
+	def dllPath = _relapath(xml, dll)
+	def node = $/
+		<Reference Include="${dllName}, Version=3.5.4500.20626, Culture=neutral, processorArchitecture=MSIL">
+		<SpecificVersion>False</SpecificVersion>
+		<HintPath>${dllPath}</HintPath>
+		</Reference>
+	/$
+	node = DocumentHelper.parseText(node).getRootElement()
+	node.selectNodes(".|//*").each {
+		it.setNamespace(namespace)
+	}
+	refGroup.addNode(node)
+}
+
+ret.metaClass.rmDll = {String name->
+	refGroup.selectNodes("ns:Reference/@Include").each {
+		def p = it.value
+		if(p.split("\\s*,\\s*")[0] == name) {
+			refGroup.removeNode(it.parent)
+		}
+	}
+}
+
+return ret
+

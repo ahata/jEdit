@@ -1,0 +1,12 @@
+macro = '''\
+<#macro setter property>
+	/**
+	 * ${property.desc}を設定します。
+	 * @param ${property.name} ${property.desc}
+	 */
+	public void set${property.name?cap_first}(${property.type} ${property.name}) {
+		this.${property.name} = ${property.name};
+	}
+</#macro>
+<@setter property=pt />'''
+_tpl(macro.replaceAll('\n', '\r\n'), [pt:args[0]]).toString()

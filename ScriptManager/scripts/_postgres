@@ -1,0 +1,20 @@
+import java.sql.DriverManager
+import groovy.sql.Sql
+
+Class.forName("org.postgresql.Driver")
+
+def host = args[0]
+def db = args[1]
+def user = args[2]
+def password = args[3]
+def closuer = args[4]
+
+def conStr = "jdbc:postgresql://${host}/${db}"
+def con = DriverManager.getConnection(conStr, user, password)
+def sql = null
+try {
+	sql = new Sql(con)
+	closuer.doCall(sql)
+} finally {
+	sql?.close()
+}

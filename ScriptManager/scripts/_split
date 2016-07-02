@@ -1,0 +1,21 @@
+def split(list, Closure cl) {
+	def result = []
+	def pre = null
+	def buffer = []
+	list.each {
+		if(pre == null || cl.doCall(pre, it)) { // check if in one group
+			buffer << it
+		} else {
+			result << buffer
+			buffer = []
+			buffer << it
+		}
+		pre = it
+	}
+	if(buffer.size() > 0) {
+		result << buffer
+	}
+	return result
+}
+
+split(*args)

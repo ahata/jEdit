@@ -1,0 +1,17 @@
+// This is a temporary macro. First, check over the
+// commands to make sure this is what you intended.
+// Then, to run this macro, switch to the buffer
+// where you would like to execute it and press C+m C+p.
+textArea.setSelectedText("line");
+SuperAbbrevsPlugin.tab(view, textArea, buffer);
+Registers.paste(textArea,'$',false);
+textArea.insertEnterAndIndent();
+textArea.setSelectedText("line");
+SuperAbbrevsPlugin.tab(view, textArea, buffer);
+textArea.setSelectedText("_1.each {");
+textArea.insertEnterAndIndent();
+textArea.insertEnterAndIndent();
+textArea.setSelectedText("}");
+textArea.goToPrevLine(false);
+SuperAbbrevsPlugin.tab(view, textArea, buffer);
+

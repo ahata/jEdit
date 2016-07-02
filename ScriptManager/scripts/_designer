@@ -1,0 +1,443 @@
+class Designer {
+	
+	StringBuilder src
+	def localVars = []
+	def _controls = [:]
+	def form = [:]
+	def modified = true
+	
+	Designer(src) {
+		this.src = new StringBuilder(src)
+		parseForm()
+		src.lines(src.indexOf('InitializeComponent()')) {
+			if(it.indexOf('End Sub') >= 0) {
+				return false
+			}
+			def mch = it =~ 'Dim (\\w+) As (.+) ='
+			if(mch) {
+				def var = [name:mch[0][1], type:mch[0][2]]
+				localVars.add(var)
+			}
+			return true
+		}
+		localVars.addAll(getControlNames())
+	}
+	
+	private def line(str) {
+		return "        ${str}\r\n"
+	}
+	
+	private def parseForm() {
+		def begin = src.indexOf("Class ") + 6
+		def end = src.indexOf("\n", begin)
+		def name = src.substring(begin, end).trim()
+		def props = [:]
+		src.substring(getControlSrcBeginIndex(name)).eachLine {line->
+			def mch = line =~ "Me\\.(.+?)\\s*=\\s*(.+)"
+			if(mch) {
+				props.put(mch[0][1], mch[0][2])
+			}
+		}
+		form.name = name
+		form.props = props
+	}
+	
+	private def pair(str) {
+		def mch = str =~ '\\((\\d+)\\s*,\\s*(\\d+)\\)'
+		[Integer.parseInt(mch[0][1]), Integer.parseInt(mch[0][2])]
+	}
+	
+	private def parseControls() {
+		_controls.clear()
+		def index = src.indexOf('Friend WithEvents')
+		if(index >= 0) {
+			src.substring(index).eachLine {
+				def mch = it =~ 'Friend WithEvents (\\w+) As (.+)$'
+				if(mch) {
+					def control = new Object() {
+						@Delegate Map map = [name:mch[0][1], type:mch[0][2], props:[:]]
+						public get(Object key) {
+							if(key == 'src') {
+								return getControlSrc(map.name)
+							} else {
+								return map.get(key)
+							}
+						}
+						String toString() {
+							map.toString()
+						}
+					}
+					_controls.put(mch[0][1], control)
+				}
+			}
+			
+			src.eachLine {line->
+				def mch = line =~ "Me\\.(\\w+)\\.(.+?)\\s*=\\s*(.+)"
+				if(mch) {
+					def name = mch[0][1]
+					if(_controls.containsKey(name)) {
+						_controls.get(name).props.put(mch[0][2], mch[0][3])
+					}
+				}
+				mch = line =~ 'Me\\.(\\w+)\\.Controls\\.Add\\(Me\\.(\\w+)\\)'
+				if(mch) {
+					def parent = mch[0][1]
+					def name = mch[0][2]
+					if(_controls.containsKey(name)) {
+						_controls.get(name).parent = parent
+					}
+				}
+			}
+			
+			_controls.each {k,it->
+				if(it.props.Location != null && it.props.Size != null) {
+					def (left, top) = pair(it.props.Location)
+					def (width, height) = pair(it.props.Size)
+					it.left = left
+					it.top = top
+					it.width = width
+					it.height = height
+				}
+			}
+		}
+		modified = false
+	}
+	
+	def getControls() {
+		if(modified) {
+			parseControls()
+		}
+		return _controls
+	}
+	
+	def lines(src, start = 0, cl) {
+		int begin = start
+		int end = src.indexOf('\n', begin)
+		while(end >= 0) {
+			if(!cl.doCall(begin, end + 1)) {
+				return
+			}
+			begin = end + 1
+			end = src.indexOf('\n', begin)
+		}
+		if(begin < src.length()) {
+			cl.doCall(begin, src.length())
+		}
+	}
+	
+	List getControlNames() {
+		def list = []
+		def index = src.indexOf('Friend WithEvents')
+		if(index >= 0) {
+			src.substring(src.indexOf('Friend WithEvents')).eachLine {
+				def mch = it =~ 'Friend WithEvents (\\w+) As (.+)$'
+				if(mch) {
+					list.add([name:mch[0][1], type:mch[0][2]])
+				}
+			}
+		}
+		return list
+	}
+	
+	def getChildList(parentName, list=[]) {
+		def subs = controls.values().findAll {v->
+			v.parent == parentName
+		}
+		list.addAll(subs)
+		subs.each {
+			getChildList(it.name, list)
+		}
+		return list
+	}
+	
+	def getContainers(parentName, list=[]) {
+		def childList = getChildList(parentName)
+		if(childList.size() == 0) {
+			return list
+		}
+		if(childList.any {getChildList(it).size() == 0}) {
+			list.add(parentName)
+		}
+		if(!(parentName =~ '^tab')) {
+			childList = childList.reverse()
+		}
+		childList.each {
+			getContainers(it, list)
+		}
+		return list
+	}
+	
+	def getControlSrcBeginIndex(name) {
+		def mch = src =~ "(?m)^\\s+'\\s+'${name}\\s+'\\s*\n"
+		if(mch) {
+			return mch.end()
+		}
+		return -1
+	}
+	
+	def getCommentBeginIndex(name) {
+		def mch = src =~ "(?m)^\\s+'\\s+'${name}\\s+'\\s*\n"
+		if(mch) {
+			return mch.start()
+		}
+		return -1
+	}
+	
+	def getControlSrc(name) {
+		def begin = getControlSrcBeginIndex(name)
+		if(begin < 0) {
+			throw new Exception("コントロールが見つかりませんでした。=>${name}")
+		}
+		def all = []
+		src.lines(begin) {line->
+			if(line =~ "^\\s*'|^\\s*\$") {
+				return false
+			}
+			all << line
+			return true
+		}
+		return all.join()
+	}
+	
+	// 既存のローカル変数取得
+	List getLocalVars() {
+		return localVars
+	}
+	
+	// 次の変数名取得
+	def nextVar(name) {
+		def index = localVars.findAll {
+			it.name =~ "^${name}\\d*"
+		}.collect {
+			def mch = it.name =~ "^${name}(\\d*)"
+			if(mch[0][1] == "") {
+				1
+			} else {
+				Integer.parseInt(mch[0][1])
+			}
+		}
+		if(index.isEmpty()) {
+			return "${name}1"
+		} else {
+			return "${name}${index.max() + 1}"
+		}
+	}
+	
+	// ローカル変数追加
+	def addLocalVar(name, type, args="") {
+		assert src.insertAfter(line("Dim ${name} As ${type} = New ${type}(${args})")) {
+			def index = src.indexOf('New System.ComponentModel.Container')
+			if(index >= 0) {
+				index
+			} else {
+				src.indexOf('InitializeComponent')
+			}
+		}
+		localVars.add([name:name, type:type])
+		return localVars[-1].name
+	}
+	
+	// インスタンス化
+	void addCreateInstance(name, type, args="") {
+		def names = getControlNames()
+		assert src.insertAfter(line("Me.${name} = New ${type}(${args})")) {
+			if(names) {
+				src.indexOf("Me.${names[-1].name} =")
+			} else {
+				src.indexOf('InitializeComponent()')
+			}
+		}
+	}
+	
+	// コントロール処理ブロック
+	void addControlBlock(name, block) {
+		def buf = ["'", "'${name}", "'"]
+		block.eachLine {
+			// 空行または削除したい行
+			def mch = it =~ '^\\s*$|#Delete#'
+			if(!mch) {
+				buf.add(it.trim())
+			}
+		}
+		def ctlSrc = buf.collect {"        ${it}"}.join("\r\n") + "\r\n"
+		assert src.insertBefore(ctlSrc) {
+			getCommentBeginIndex(form.name)
+		}, "Form処理開始のコメント行が見つかりませんでした。"
+	}
+	
+	// コントロールの定義を追加
+	void addControlDeclear(name, type) {
+		// 宣言を追加
+		assert src.insertAfter("    Friend WithEvents ${name} As ${type}\r\n") {
+			def begin = src.lastIndexOf('Friend WithEvents')
+			if(begin >= 0) {
+				begin
+			} else {
+				src.lastIndexOf('End Sub')
+			}
+		}
+		localVars.add([name:name, type:type])
+		modified = true
+	}
+	
+	// 親コントルールへ追加
+	void addToParent(name, parent="") {
+		if(!parent || parent == 'pnlApp') {
+			if(getControlSrcBeginIndex("pnlApp") < 0) {
+				// 初回pnlApp使われてない
+				assert src.insertAfter(["'", "'pnlApp", "'"].collect{line(it)}.join()) {
+					def begin = src.indexOf("Me.SuspendLayout")
+					if(begin >= 0) {
+						begin
+					} else {
+						src.indexOf("= New")
+					}
+				}
+			}
+			assert src.insertBefore(line("Me.pnlApp.Controls.Add(Me.${name})")) {
+				def begin = src.indexOf("Me.pnlApp.Controls.Add")
+				if(begin >= 0) {
+					begin
+				} else {
+					getControlSrcBeginIndex("pnlApp")
+				}
+			}
+		} else {
+			assert src.insertBefore(line("Me.${parent}.Controls.Add(Me.${name})")) {
+				def begin = src.indexOf("Me.${parent}.Controls.Add")
+				if(begin >= 0) {
+					begin
+				} else {
+					getControlSrcBeginIndex(parent)
+				}
+			}, "親コントロール${parent}が見つかりません。"
+		}
+	}
+	
+	// コントロールを行で取得
+	def collectRows(controlList) {
+		def rows = []
+		controlList.each {
+			def y = it.y
+			def h = it.h
+			def row = rows.find {
+				it.y1 < y + h && it.y2 > y
+			}
+			if(row) {
+				row.y1 = Math.min(row.y1, y)
+				row.y2 = Math.max(row.y2, y + h)
+				row.widgets << it
+			} else {
+				def r = [:]
+				r.y1 = y
+				r.y2 = y + h
+				r.widgets = []
+				r.widgets << it
+				rows << r
+			}
+		}
+		rows.sort{it.y1}
+		rows.each {row->
+			row.widgets.sort {it.x}
+		}
+		return rows
+	}
+	
+	// 右上から左下の順でコントロールをソートする
+	def sort(ctls) {
+		def controls = getControls()
+		ctls.collect {v->
+			def ctl = [:]
+			ctl.putAll(v)
+			def current = ctl
+			while(current.parent != null && current.parent != 'pnlApp') {
+				def parentCtl = controls.get(current.parent)
+				ctl.top += parentCtl.top
+				ctl.left += parentCtl.left
+				current = parentCtl
+			}
+			return ctl
+		}.sort {a,b->
+			if(a.top - b.top < - 10) {
+				return -1
+			} else if(a.top - b.top > 10) {
+				return 1
+			}
+			return a.left - b.left
+		}
+	}
+	
+	// コントロールを列で取得
+	def collectCols(controlList) {
+		def cols = []
+		controlList.each {
+			def x = it.x
+			def w = it.w
+			def col = cols.find {
+				it.x1 < x + w && it.x2 > x
+			}
+			if(col) {
+				col.x1 = Math.min(col.x1, x)
+				col.x2 = Math.max(col.x2, x + w)
+				col.widgets << it
+			} else {
+				def c = [:]
+				c.x1 = x
+				c.x2 = x + w
+				c.widgets = []
+				c.widgets << it
+				cols << c
+			}
+		}
+		cols.sort{it.x1}
+		return cols
+	}
+	
+	// コントロールを削除する
+	void rmControl(name) {
+		def begin = getCommentBeginIndex(name)
+		def end = getControlSrcBeginIndex(name)
+		if(begin < 0 || end < 0) {
+			return
+		}
+		lines(src, end) {from, to->
+			def line = src.substring(from, to)
+			if(line =~ "^\\s*'|^\\s*\$") {
+				end = from
+				return false
+			}
+			return true
+		}
+		src.delete(begin, end)
+		
+		while(true) {
+			def mch = src =~ "\\b${name}\\b" 
+			if(!mch) {
+				break
+			}
+			begin = src.lastIndexOf('\n', mch.start()) + 1
+			end = src.indexOf('\n', mch.start())
+			if(end < 0) {
+				end = src.length()
+			} else {
+				end = end + 1
+			}
+			src.replaceBlock("") {
+				[begin, end]
+			}
+		}
+		modified = true
+	}
+	
+	String toString() {
+		src.toString()
+	}
+}
+
+if(args[0] instanceof File) {
+	new Designer(new StringBuilder(args[0].text))
+} else if(args[0] instanceof CharSequence) {
+	new Designer(new StringBuilder(args[0]))
+} else {
+	throw Exception("_desinger呼出しパラメータ不正：File/CharSequenceを渡してください。")
+}

@@ -1,0 +1,21 @@
+def (path, excelMap) = args
+
+def ALL = [:]
+
+excelMap.each {name, map->
+	def sheetMap = [:]
+	def resultMap = [:]
+	map.each {k,v->
+		def mch = v =~ "^(\\d+)-([a-zA-Z]+)-([a-zA-Z]+)"
+		if(mch) {
+			resultMap.put(k, _exceltable(path, name, mch[0][1], mch[0][2], mch[0][3]))
+		} else {
+			sheetMap.put(k,v)
+		}
+	}
+	resultMap.putAll(_excelobj(path, name, sheetMap))
+	ALL.put(name, resultMap)
+}
+
+ALL
+

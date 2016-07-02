@@ -1,0 +1,32 @@
+import java.util.zip.*
+
+def base = new File(args[0]).parentFile.path
+
+if(args.length >= 2) {
+	output = new File(args[1])
+} else {
+	output = new File(base, new File(args[0]).name.replaceAll('\\.\\w+$',"") + ".zip")
+}
+
+output.withOutputStream {
+	def zout = new ZipOutputStream(it)
+	addEntry(base, zout, new File(args[0]))
+	zout.finish()
+}
+
+def addEntry(base, zout, file) {
+	def path = file.path - base
+	if(file.isDirectory()) {
+		zout.putNextEntry(new ZipEntry(path + "/"))
+		file.eachFile {f->
+			addEntry(base, zout, f)
+		}
+	} else {
+		zout.putNextEntry(new ZipEntry(path))
+		file.withInputStream {fin->
+			zout << fin
+		}
+	}
+	zout.closeEntry()
+}
+

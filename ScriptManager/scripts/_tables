@@ -1,0 +1,35 @@
+def parseResultSet(def rs) {
+	def list = []
+	try {
+		while(rs.next()) {
+			list << rs.toRowResult()
+		}
+	} finally {
+		rs?.close()
+	}
+	return list
+}
+
+// List Of GroovyRowResult
+def getTablesOfSchema(meta, schema) {
+	// "TABLE", "VIEW", "SYSTEM TABLE", "GLOBAL TEMPORARY", "LOCAL TEMPORARY", "ALIAS", "SYNONYM"
+	def types = ['TABLE'] as String[]
+	return parseResultSet(meta.getTables(null, schema, '%', types))
+}
+
+def tables(sql) {
+	def result = []
+	def meta = sql.connection.metaData
+	def schema = meta.userName
+	getTablesOfSchema(meta, schema).each {it->
+		def pName = it.TABLE_NAME
+		if(pName =~ '\\$') {
+			// システムテーブル無視
+			return
+		}
+		result << pName
+	}
+	result
+}
+
+tables(args[0])

@@ -1,0 +1,36 @@
+class Change {
+	private def change
+	
+	Change(ch) {
+		this.change = ch
+	}
+	
+	def each(Closure cl) {
+		def ch = change
+		while (ch != null) {
+			int modified = Math.min(ch.inserted, ch.deleted)
+			int deleted = ch.deleted - modified
+			int inserted = ch.inserted - modified
+			def oper = [:]
+			oper.ins = inserted
+			oper.del = deleted
+			oper.mod = modified
+			cl.doCall(ch.line0 + 1, oper)
+			ch = ch.link
+		}
+	}
+}
+
+def diff(def source, def target) {
+	if(source instanceof List) {
+		source = source.toArray()
+	}
+	if(target instanceof List) {
+		target = target.toArray()
+	}
+	def tool = new bmsi.util.Diff(source, target)
+	new Change(tool.diff())
+}
+
+diff(args[0], args[1])
+

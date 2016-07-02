@@ -1,0 +1,195 @@
+assert args.length >= 5
+vargs = args
+
+_count_ = 0
+COMMIT_SIZE = 1000
+_debug_ = args.length > 5? args[5]: false
+
+def debugSql(sql, params=[]) {
+	if(!_debug_) {
+		return
+	}
+	params.each {
+		if(it == null) {
+			sql = sql.replaceFirst('\\?',"''")
+		} else if(it instanceof Number) {
+			sql = sql.replaceFirst('\\?',"${it}")
+		} else if(it instanceof Date) {
+			def sdf = new java.text.SimpleDateFormat('yyyy/MM/dd HH:mm:ss')
+			sql = sql.replaceFirst('\\?',"to_date('${sdf.format(it)}', 'YYYY/MM/DD HH24:MI:SS')")
+		} else {
+			sql = sql.replaceFirst('\\?',"'${it}'")
+		}
+	}
+	println sql
+}
+
+def makeValue(col) {
+	switch(col.type) {
+	case "CHAR":
+	case "VARCHAR":
+		def size = Math.min(Integer.parseInt(col.get('size')), 10)
+		def index = Math.min(col.pName.length(), size)
+		col.pName.substring(0, index)
+		break
+	case "DATE":
+	case "TIMESTAMP":
+		new java.sql.Timestamp(0)
+		break
+	case "INTEGER":
+	case "NUMERIC":
+		0
+		break
+	default:
+		throw new Exception("サポートされないデータ型:${col.type}")
+	}
+}
+
+def insertTable(sql, String name, Map colDef, Closure cl) {
+	def cols = [:]
+	colDef.each {k,v->
+		cols.put(k.toUpperCase(), v)
+	}
+	def tableInfo = _tableinfo(sql.connection, name)
+	def colList = []
+	def paramList = []
+	
+	tableInfo.cols.each {col->
+		if(cols.containsKey(col.pName)) {
+			colList << col.pName
+			paramList << colDef.get(col.pName)
+		} else {
+			// 主キー或いはNULL許可しないかつディフォルト値がNULLの場合
+			if(col.key || (!col.nullable && col.defaultValue == '')) {
+				colList << col.pName
+				paramList << makeValue(col)
+			}
+		}
+	}
+	def sqlStr = "INSERT INTO ${tableInfo.pName}(${colList.join(',')}) VALUES(${(['?']*colList.size()).join(',')})" as String
+	runSql(paramList) {params->
+		debugSql(sqlStr, params)
+		sql.executeUpdate(sqlStr, params)
+		_count_ = ++_count_ % COMMIT_SIZE
+		if(_count_ == 0) {
+			println "${COMMIT_SIZE}件登録しました。"
+			sql.commit()
+		}
+		if(cl) {
+			def map = [:]
+			[colList, params].transpose().each {k,v->
+				map.put(k,v)
+			}
+			cl.doCall(map)
+		}
+	}
+}
+
+class MyRange {
+	def prefix
+	def from
+	def to
+	def padLen
+	MyRange(String prefix = "", int from, int to) {
+		this.prefix = prefix
+		this.from = from
+		this.to = to
+		this.padLen = Math.max(from,to).toString().length()
+	}
+	def each(Closure cl) {
+		(from .. to).each {
+			def val = prefix + String.valueOf(it).padLeft(padLen, '0')
+			cl.doCall(val)
+		}
+	}
+}
+
+class Sequence {
+	def seqName
+	def sql
+	Sequence(sql, seqName) {
+		this.sql = sql
+		this.seqName = seqName
+	}
+	def next() {
+		sql.firstRow("SELECT ${seqName}.NEXTVAL FROM DUAL" as String).NEXTVAL
+	}
+}
+
+def range(String prefix="", int from, int to) {
+	new MyRange(prefix, from, to)
+}
+
+def seq(sql, seqName) {
+	new Sequence(sql, seqName)
+}
+
+def param(list, index, paramList, Closure cl) {
+	if(index == list.size()) {
+		cl.doCall(paramList)
+		return
+	}
+	def value = list[index]
+	if(value instanceof Range || value instanceof List || value instanceof MyRange) {
+		value.each {
+			paramList[index] = it
+			param(list, index + 1, paramList, cl)
+		}
+	} else {
+		if(value instanceof Sequence) {
+			paramList[index] = value.next()
+		} else {
+			paramList[index] = value
+		}
+		param(list, index + 1, paramList, cl)
+	}
+}
+
+def runSql(params, Closure cl) {
+	param(params, 0, [], cl)
+}
+
+def include(path, ...runargs) {
+	s = _script(path)
+	
+	_tables(sql).each {table->
+		s.metaClass."${table}" << {Map colDef, Closure cl=null->
+			insertTable(sql, table, colDef, cl)
+		}
+		s.metaClass."${table}" << {Closure cl=null->
+			insertTable(sql, table, [:], cl)
+		}
+	}
+	s.metaClass.delete = {String[] tables->
+		tables.each {
+			String sqlStr = "DELETE FROM ${it.toUpperCase()}"
+			debugSql(sqlStr)
+			sql.execute(sqlStr)
+		}
+	}
+	s.metaClass.include = {script, ...execargs->
+		include(script, *execargs)
+	}
+	s.metaClass.range = {String prefix="", int from, int to->
+		range(prefix, from, to)
+	}
+	s.metaClass.seq = {String seqName->
+		seq(sql, seqName)
+	}
+	s.metaClass.date = {String date->
+		def sdf = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
+		new java.sql.Timestamp(sdf.parse(date).getTime())
+	}
+	s.getBinding().setVariable("sql", sql)
+	s.getBinding().setVariable("args", runargs)
+	s.run()
+}
+
+_oracle(*vargs[0..3]) {
+	sql = it
+	sql.connection.autoCommit = false
+	sql.withTransaction {
+		include(vargs[4])
+		sql.commit()
+	}
+}

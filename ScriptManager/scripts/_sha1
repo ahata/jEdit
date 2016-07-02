@@ -1,0 +1,1 @@
+SignUtil.sha1(args[0])

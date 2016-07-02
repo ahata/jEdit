@@ -1,0 +1,28 @@
+import java.util.zip.*
+
+def base = new File(args[0]).parentFile.path
+def output
+if(args.length >= 2) {
+	output = new File(args[1])
+	if(!output.isDirectory()) {
+		throw new Exception("target is not a directory")
+	}
+} else {
+	output = new File(base)
+}
+
+new File(args[0]).withInputStream {
+	def zin = new ZipInputStream(it)
+	def entry = null
+	while((entry = zin.getNextEntry()) != null) {
+		if(entry.isDirectory()) {
+			new File(output, entry.name).mkdirs()
+		} else {
+			new File(output, entry.name).withOutputStream {fout->
+				fout << zin
+			}
+			zin.closeEntry()
+		}
+	}
+	zin.close()
+}

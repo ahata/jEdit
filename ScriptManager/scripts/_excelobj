@@ -1,0 +1,17 @@
+def (workbook, sheet, mapping) = args
+
+def key = "excelobj" + _md5("${workbook}/${sheet}/${mapping.collect {k,v-> v}.sort().join('/')}")
+
+def file = new File(workbook)
+def objGen = {
+	def rs
+	_wb(workbook) {wb->
+		rs = [file.lastModified(), wb.sheet(sheet).map(mapping).toMap()]
+	}
+	return rs
+}
+def needUpdate = {
+	it[0] < file.lastModified()
+}
+
+_objcache(key, objGen, needUpdate)[1]

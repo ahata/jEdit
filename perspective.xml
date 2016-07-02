@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE PERSPECTIVE SYSTEM "perspective.dtd">
+<PERSPECTIVE>
+<BUFFER AUTORELOAD="TRUE" AUTORELOAD_DIALOG="TRUE">C:\Users\ahata\Desktop\scripts\DbUpgradeCheck.groovy</BUFFER>
+<VIEW PLAIN="FALSE">
+<PANES>
+"C:\\Users\\ahata\\Desktop\\scripts\\DbUpgradeCheck.groovy" buffer "C:\\Users\\ahata\\Desktop\\scripts\\DbUpgradeCheck.groovy" buff "global" bufferset
+</PANES>
+<GEOMETRY X="252" Y="15" WIDTH="1503" HEIGHT="890" EXT_STATE="0" />
+</VIEW>
+</PERSPECTIVE>

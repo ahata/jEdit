@@ -1,0 +1,9 @@
+DockableWindowManager/
+activity.log
+history
+jars-cache/
+settings-backup/
+
+/DockableWindowManager
+/killring.xml
+/recent.xml

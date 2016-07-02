@@ -1,0 +1,62 @@
+def _rm(file, regex, type) {
+	if(file.name.matches(regex)) {
+		switch(type) {
+		case "all":
+			_rm(file)
+			break
+		case "file":
+			if(file.isFile()) {
+				_rm(file)
+			}
+			break
+		case "dir":
+			if(file.isDirectory()) {
+				_rm(file)
+			}
+			break
+		}
+	} else if(file.isDirectory()) {
+		file.eachFile {
+			_rm(it, regex, type)
+		}
+	}
+}
+
+def _rm(file) {
+	if(file.isFile()) {
+		file.delete()
+	} else if(file.isDirectory()) {
+		file.eachFile {
+			_rm(it)
+		}
+		file.delete()
+	}
+}
+
+def type = "all"
+if(args.length >= 3) {
+	type = args[2].toLowerCase()
+	if(!(type in ["all", "file", "dir"])) {
+		throw new IllegalArgumentException("Type: only all,file,dir are allowed.")
+	}
+}
+
+def regex = null
+if(args.length >= 2) {
+	regex = args[1]
+}
+
+def target = null
+if(args[0] instanceof File) {
+	target = args[0]
+} else if(args[0] instanceof CharSequence) {
+	target = new File(args[0])
+} else {
+	throw new IllegalArgumentException("Only File or String parameters are allowed")
+}
+
+if(regex) {
+	_rm(target, regex, type)
+} else {
+	_rm(target)
+}

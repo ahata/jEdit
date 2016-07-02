@@ -1,0 +1,100 @@
+public interface DefaultConfig {
+
+	/** テーブル列定義の終了列（備考欄） */
+	String COL_END = "L";
+
+	/** テーブル列定義の開始行 */
+	String ROW_START = "13";
+
+	/** テーブル列定義の開始列（項目名称） */
+	String COL_START = "C";
+
+	/** コンポーネント名 */
+	String COORD_CNAME = "D3";
+
+	/** 論理テーブル名 */
+	String COORD_LNAME = "D4";
+
+	/** テーブル定義シートであるかどうかを判断する特徴を持つセル */
+	String COORD_MARK = "B1";
+
+	/** テーブルの物理名 */
+	String COORD_PNAME = "L4";
+
+	/** テーブル定義シートであるかどうかを判断する特徴を持つセルの値 */
+	String MARK_VAL = "論理テーブル設計書";
+
+	/** null非可能の場合の記号 */
+	String MSG_CIRCLE = "○";
+
+	/** 列のロジック名 */
+	int IND_LNAME = 0;
+
+	/** 列の物理名 */
+	int IND_PNAME = 1;
+
+	/** 列のデータ型 */
+	int IND_TYPE = 2;
+
+	/** 列のサイズ */
+	int IND_SIZE = 3;
+
+	/** 列のディフォルト値 */
+	int IND_DEFAULT_VALUE = 5;
+
+	/** 列はキーであるかどうか */
+	int IND_KEY = 6;
+
+	/** 列はnull可能の列であるかどうか */
+	int IND_NULLABLE = 8;
+
+	/** 列の備考 */
+	int IND_DESC = 9;
+}
+
+def tableDefFile = new File(args[0])
+def md5 = tools.md5.MD5Utils.getMD5(new ByteArrayInputStream(args[0].getBytes("utf-8")))
+
+def tmpDir = System.getProperty("tool.excel.tmpdir")
+if(!tmpDir) {
+  tmpDir = /c:\dbfiletmp/
+}
+new File(tmpDir).mkdirs()
+
+def objFile = new File(tmpDir, 'table_' + md5)
+
+def tableDefMap
+
+def update = {
+	def parser = new tools.db.TableParser()
+	if(args.length > 1) {
+		parser.setConfig(args[1])
+	} else {
+		parser.setConfig(DefaultConfig.class)
+	}
+	if(args.length > 2) {
+		parser.setTransformer(args[2])
+	}
+
+	tableDefMap = parser.process(tableDefFile)
+	objFile.withObjectOutputStream {oout->
+		oout << [tableDefFile.lastModified(), tableDefMap]
+	}
+}
+
+if(!objFile.exists()) {
+	update()
+} else {
+	objFile.withObjectInputStream {oin->
+		def obj = oin.readObject()
+		
+		if(obj[0] < tableDefFile.lastModified()) {
+			update()
+		} else {
+			tableDefMap = obj[1]
+		}
+	}
+}
+
+return tableDefMap
+

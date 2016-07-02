@@ -1,0 +1,54 @@
+import tools.file.FileList
+
+
+if(args.length == 2) {
+	newDir = args[0]
+	oldDir = args[1]
+} else {
+	newDir = _1[0]
+	oldDir = _1[1]
+}
+
+FileList main = new FileList(new File(newDir), new File(oldDir))
+
+try {
+	if(_2) {
+		main.setIgnorePattern(_2[0])
+	}
+	if(_3) {
+		main.setIgnoreList(_3)
+	}
+} catch(Exception e) {
+}
+
+def relative(base, file) {
+	if(file.path.indexOf(base) < 0) {
+		throw new Exception()
+	}
+	(file.path - base).replaceAll('^(/|\\\\)','')
+}
+
+main.compare()
+
+if (main.added) {
+	println("新規")
+	main.added.each {
+		println("\t" + relative(newDir, it))
+	}
+}
+
+if (main.deleted) {
+	println("削除")
+	main.deleted.each {
+		println("\t" + relative(oldDir, it))
+	}
+}
+
+if (main.modified) {
+	println("修正")
+	main.modified.each {
+		println("\t" + relative(newDir, it))
+	}
+}
+
+main

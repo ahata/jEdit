@@ -1,0 +1,59 @@
+def xml = new File(args[0]).getText('UTF-8') 
+
+def diagram = new XmlSlurper().parseText(xml)
+
+findWord = {id->
+	diagram.dictionary.word.find {
+		it.id == id
+	}
+}
+
+findCol = {id->
+	diagram.contents.table.columns.normal_column.find {
+		it.id == id
+	}
+}
+
+_tables_ = []
+
+diagram.contents.table.each {table->
+	// テーブル名
+	def tableName = table.physical_name.toString().toUpperCase()
+	def oneTable = [:]
+	oneTable.lName = table.logical_name.toString()
+	oneTable.pName = table.physical_name.toString().toUpperCase()
+	// カラムのリスト
+	def cols = []
+	table.columns.normal_column.each {col->
+		// 優先順位：col.word_idの情報->col.logical_name,physical_name->col.referenced_column
+		if(col.word_id == '') {
+			word = findWord(findCol(col.referenced_column).word_id)
+			if(col.logical_name == '') {
+				lName = word.logical_name
+			} else {
+				lName = col.logical_name
+			}
+			if(col.physical_name == '') {
+				pName = word.physical_name
+			} else {
+				pName = col.physical_name
+			}
+		} else {
+			word = findWord(col.word_id)
+			lName = word.logical_name
+			pName = word.physical_name
+		}
+		def oneCol = [:]
+		oneCol.lName = lName.toString()
+		oneCol.pName = pName.toString().toUpperCase()
+		oneCol.type = word.type?.toString()
+		oneCol.put("size", word.length?.toString())
+		oneCol.key = col.primary_key.toString() == 'true'
+		cols.add(oneCol)
+	}
+	oneTable.cols = cols
+	
+	_tables_.add(oneTable)
+}
+
+_tables_

@@ -1,0 +1,52 @@
+import tools.excel.util.*
+
+def (excel, sheetName, startRow, startCol, endCol) = args
+
+def parse(excel, sheetName, startRow, startCol, endCol) {
+	
+	if(startRow instanceof String) {
+		startRow = ExcelUtil.getRowIndex(startRow)
+	}
+	if(startCol instanceof String) {
+		startCol = ExcelUtil.getColumnIndex(startCol)
+	}
+	if(endCol instanceof String) {
+		endCol = ExcelUtil.getColumnIndex(endCol)
+	}
+	def rows = []
+	_wb(excel) {wb->
+		def sheet = wb.getSheet(sheetName)
+		def head = sheet.getRow(startRow)
+		def colNames = (startCol .. endCol).collect {
+			head.getCell(it).getText()
+		}
+		for(i=startRow+1; ;i++) {
+			def row = sheet.getRow(i)
+			def values = (startCol .. endCol).collect {
+				row.getCell(it).getText()
+			}
+			if(values.find {it}) {
+				def data = [:]
+				values.eachWithIndex {it,i->
+					data.put(colNames[i], it)
+				}
+				rows << data
+			} else {
+				break
+			}
+		}
+	}
+	return rows
+}
+
+def key = "exceltable" + _md5("${excel}/${sheetName}/${startRow}/${startCol}/${endCol}")
+
+def file = new File(excel)
+def objGen = {
+	[file.lastModified(), parse(excel, sheetName, startRow, startCol, endCol)]
+}
+def needUpdate = {
+	it[0] < file.lastModified()
+}
+
+_objcache(key, objGen, needUpdate)[1]

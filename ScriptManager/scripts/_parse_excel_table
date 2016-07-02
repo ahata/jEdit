@@ -1,0 +1,76 @@
+def convert(val) {
+	return val.replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll("\n|\r\n", "<br>")
+}
+
+def parse(sheet, rowStart, colStart) {
+	def result = new StringBuilder("""<table border="1" cellpadding="3" cellspacing="0">""")
+	def endColumn = colStart
+	// ヘッダを解析
+	def headerRow = sheet.getRow(rowStart)
+	def header = new StringBuilder()
+	for(def i = colStart;;) {
+		def cell = headerRow.getCell(i)
+		def text = cell.getText()
+		if(!text) {
+			break
+		}
+		def span = cell.getColStartAndEnd()
+		def add = span[1] - span[0] + 1
+		i += add
+		endColumn = i
+		def colSpanHtm = add > 1 ? " colspan=\"${add}\"" : ""
+		header << "<th${colSpanHtm}>${cell.getText()}</th>"
+	}
+	if(header) {
+		result << "\r\n\t<tr>${header}</tr>"
+	} else {
+		return ""
+	}
+	for(def i=rowStart+1;;i++) {
+		def row = sheet.getRow(i)
+		def allContent = new StringBuilder()
+		def oneRow = []
+		for(def j = colStart;j < endColumn;) {
+			def cell = row.getCell(j)
+			def text = cell.getText()
+			def span = cell.getColStartAndEnd()
+			def add = span[1] - span[0] + 1
+			j += add
+			
+			def rowSpan = cell.getRowStartAndEnd()
+			def rowAdd = rowSpan[1] - rowSpan[0] + 1
+			if(rowSpan[0] != i) {
+				// 既に処理したセルです
+				continue
+			}
+			def oneTd = [:]
+			oneTd.content = text
+			oneTd.rowSpan = rowAdd
+			oneTd.colSpan = add
+			oneRow << oneTd
+
+			allContent << text
+		}
+
+		if(oneRow) {
+			if(!allContent) {
+				// 空行が出たら解析終了
+				break
+			}
+			def min = oneRow.collect {it.rowSpan}.min()
+			oneRow.each {it.rowSpan = it.rowSpan - min + 1}
+			def tds = oneRow.collect {
+				def colSpanHtm = it.colSpan > 1 ? " colspan=\"${it.colSpan}\"" : ""
+				def rowSpanHtm = it.rowSpan > 1 ? " rowspan=\"${it.rowSpan}\"" : ""
+				"<td${colSpanHtm}${rowSpanHtm}>${convert(it.content)}</td>"
+			}.join()
+			result << "\r\n\t<tr>${tds}</tr>"
+		} else {
+			// セルマージでスキップした行であれば処理を続ける
+		}
+	}
+
+	result << "\r\n</table>"
+}
+
+parse(args[0], args[1], args[2])

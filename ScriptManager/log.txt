@@ -1,0 +1,3 @@
+1467432033156 static init block start
+1467432033206 class loader initialized
+1467432033484 static init block end

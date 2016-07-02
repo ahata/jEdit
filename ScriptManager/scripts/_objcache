@@ -1,0 +1,28 @@
+def cache(String key, Closure objGen, Closure needUpdate) {
+	def dir = new File("c:/_objcache_")
+	if(!dir.isDirectory()) {
+		dir.mkdir()
+	}
+	def objFile = new File(dir, key)
+	def cachedObj = null
+	if(objFile.isFile()) {
+		try {
+			objFile.withObjectInputStream {
+				cachedObj = it.readObject()
+			}
+		} catch(Exception e) {
+		}
+	}
+	if(cachedObj == null || needUpdate.doCall(cachedObj)) {
+		def obj = objGen.doCall()
+		new File(dir, key).withObjectOutputStream {
+			it.writeObject(obj)
+		}
+		return obj
+	} else {
+		return cachedObj
+	}
+}
+
+cache(*args)
+

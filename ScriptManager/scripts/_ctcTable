@@ -1,0 +1,130 @@
+import tools.excel.*
+
+class CanceledException extends Exception {}
+
+parse = {defFile->
+	def all = [:]
+	_sheets(defFile) {sheet->
+		def tableCols = []
+		def table = [:]
+		def indicate = sheet.getCellAt("A1").getText()
+
+		if(indicate != 'レコードレイアウト') return
+
+		table.pName = sheet.getCellAt("Z4").getText()
+		table.lName = sheet.getCellAt("H4").getText()
+
+		def current = 8
+		def final max = 5
+		while(true) {
+			def from = current
+			def to = current
+			def rowList = []
+			for(i=0;i<max;i++) {
+				def row = sheet.getRow(to)
+				rowList << row
+				if(row.getCell('C').hasBorder(Border.Direction.bottom)) {
+					break
+				}
+				to++
+			}
+			if(to - from >= max) {
+				break
+			}
+			try {
+				tableCols << getOneRow(rowList)
+			} catch(CanceledException e) {
+				// skip
+			}
+			// 次の行
+			current = to + 1
+		}
+		table.cols = tableCols
+		all.put(sheet.name, table)
+	}
+	all
+}
+
+def type(t) {
+	switch(t) {
+	case 'VCHAR':
+		return 'VARCHAR'
+	case 'timestamp':
+		return 'TIMESTAMP'
+	case 'CHAR':
+		return 'CHAR'
+	case 'INTEGER':
+		return 'INTEGER'
+	case 'TEXT':
+		return 'VARCHAR'
+	default:
+		throw new Exception("unkonwn type ${t}")
+	}
+}
+
+def getOneRow(rows) {
+	def oneRow = [:]
+	def list = ['C','N','V', 'Z', 'AD', 'AG'].collect {col->
+		rows.collect {row->
+			def cell = row.getCell(col)
+			if(cell.getFont().isStrikethrough()) {
+				throw new CanceledException()
+			}
+			cell.getText()
+		}.join()
+	}
+	oneRow.lName = list[0]
+	oneRow.pName = list[1]
+	oneRow.type = type(list[2])
+	oneRow.colSize = (list[3] ==~ '\\d+')?list[3]:''
+	oneRow.nullable = list[4] ? true: false
+	oneRow.key = list[5] ? true: false
+	oneRow
+}
+
+//------------------
+def tmpDir = System.getProperty("tool.excel.tmpdir")
+if(!tmpDir) {
+  tmpDir = /c:\dbfiletmp/
+}
+new File(tmpDir).mkdirs()
+
+if(args[0] instanceof String) {
+	list = [args[0]]
+} else {
+	list = args[0]
+}
+
+result = [:]
+
+list.each {file->
+	def tableDefFile = new File(file)
+	def md5 = tools.md5.MD5Utils.getMD5(new ByteArrayInputStream(file.getBytes("utf-8")))
+	def objFile = new File(tmpDir, 'ctc_table_' + md5)
+
+	def tableDefMap
+
+	def update = {
+		tableDefMap = parse(tableDefFile)
+		objFile.withObjectOutputStream {oout->
+			oout << [tableDefFile.lastModified(), tableDefMap]
+		}
+	}
+
+	if(!objFile.exists()) {
+		update()
+	} else {
+		objFile.withObjectInputStream {oin->
+			def obj = oin.readObject()
+			
+			if(obj[0] < tableDefFile.lastModified()) {
+				update()
+			} else {
+				tableDefMap = obj[1]
+			}
+		}
+	}
+	result.putAll(tableDefMap)
+}
+
+result

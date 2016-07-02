@@ -1,0 +1,34 @@
+/**
+ * file1よりfile2の相対パスを取得
+ * @return 相対パスがない場合、file2の絶対パスを返す。
+ */
+def getRelaPath(File file1, File file2) {
+	def separator = System.getProperty("file.separator")
+	def path1 = file1.parentFile.canonicalPath.split("\\Q${separator}\\E") as List
+	def path2 = file2.parentFile.canonicalPath.split("\\Q${separator}\\E") as List
+	def len = Math.min(path1.size(), path2.size())
+	if(!path1[0].equalsIgnoreCase(path2[0])) {
+		// 共通のルートパスがない場合、絶対パス返却
+		return file2.canonicalPath
+	}
+	def i = 0
+	for(; i < len; i++) {
+		// ディレクトリが異なるまで比較
+		if(!path1[i].equalsIgnoreCase(path2[i])) {
+			break
+		}
+	}
+	// file1が異なるディレクトリまでの階層
+	def prefix = (0 ..< path1.size() - i).collect {".."}.join(separator)
+	if(prefix == "") {
+		prefix = "."
+	}
+	path2.add(file2.name)
+	return prefix + separator + path2[i..-1].join(separator)
+}
+
+assert args.length == 2
+def file1 = args[0] instanceof String? new File(args[0]): args[0]
+def file2 = args[1] instanceof String? new File(args[1]): args[1]
+
+return getRelaPath(file1, file2)

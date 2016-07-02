@@ -1,0 +1,28 @@
+def addBom(File file) {
+	def temp = null
+	file.withInputStream() {fin->
+		byte[] buf = new byte[3]
+		byte[] sig = [0xEF, 0xBB, 0xBF]
+		fin.mark(buf.length)
+		fin.read(buf)
+		fin.reset()
+		if(buf !=  sig) {
+			temp = File.createTempFile(file.name, "", file.parentFile)
+			temp.withOutputStream {os->
+				os.write(sig)
+				os << fin
+			}
+		}
+	}
+	if(temp?.isFile()) {
+		file.delete()
+		temp.renameTo(file)
+	}
+}
+
+assert args.length == 1
+if(args[0] instanceof String) {
+	addBom(new File(args[0]))
+} else {
+	addBom(args[0])
+}

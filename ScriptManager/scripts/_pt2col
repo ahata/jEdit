@@ -1,0 +1,8 @@
+args[0].inject("") {s,i->
+	if(!s) return i
+	if(i.charAt(0).isUpperCase()) {
+		s << "_" << i
+	} else {
+		s << i
+	}
+}.toString().toUpperCase()

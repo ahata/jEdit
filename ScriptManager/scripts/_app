@@ -1,0 +1,10 @@
+import tools.excel.jacob.*
+
+Closure c = args[0]
+
+def app = Application.start()
+try {
+	c.doCall(app)
+} finally {
+	app.end()
+}

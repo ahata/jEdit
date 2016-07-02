@@ -1,0 +1,7 @@
+macro = '''\
+<#macro field property>
+	/** ${property.desc} */
+	private ${property.type} ${property.name};
+</#macro>
+<@field property=pt />'''
+_tpl(macro.replaceAll('\n', '\r\n'), [pt:args[0]]).toString()

@@ -1,0 +1,88 @@
+def _distance(def source, def target, Closure cl=null) {
+	int n = source.size()
+	int m = target.size()
+
+	def result = [:]
+	if (n == 0) {
+		result.dist = m
+		result.route = "a" * m
+		return result
+	}
+
+	if (m == 0) {
+		result.dist = n
+		result.route = "d" * n
+		return result
+	}
+
+	int[][] matrix = new int[n + 1][m + 1]
+	String[][] change = new String[n + 1][m + 1]
+	(0 .. n).each {i->
+		matrix[i][0] = i
+		change[i][0] = 'd'
+	}
+	(0 .. m).each {j->
+		matrix[0][j] = j
+		change[0][j] = 'a'
+	}
+	change[0][0] = 'n'
+
+	(1 .. n).each {i->
+		(1 .. m).each {j->
+			def cost
+			if(cl == null) {
+				cost = (source[i - 1] == target[j - 1]) ? 0 : 1
+			} else {
+				cost = cl.doCall(source[i - 1], target[j - 1]) ? 0 : 1
+			}
+			def del = matrix[i - 1][j] + 1
+			def add = matrix[i][j - 1] + 1
+			def mod = matrix[i - 1][j - 1] + cost
+			def oper
+			def value
+			if (del <= add) {
+				oper = 'd'
+				value = del
+			} else {
+				oper = 'a'
+				value = add
+			}
+			if (mod < value) {
+				if (cost == 0) {
+					oper = 'n'
+				} else {
+					oper = 'm'
+				}
+				value = mod
+			}
+			matrix[i][j] = value
+			change[i][j] = oper
+		}
+	}
+
+	result.dist = matrix[n][m]
+	result.route = traverse(change, n, m)
+
+	return result
+}
+
+def traverse(def change, int n, int m) {
+	if (n == 0 && m == 0) {
+		return ""
+	}
+	switch (change[n][m]) {
+	case 'n':
+		return traverse(change, n - 1, m - 1) << 'n'
+	case 'm':
+		return traverse(change, n - 1, m - 1) << 'm'
+	case 'd':
+		return traverse(change, n - 1, m) << 'd'
+	case 'a':
+		return traverse(change, n, m - 1) << 'a'
+	default:
+		throw new RuntimeException()
+	}
+}
+
+// ---------------------------------------------------
+_distance(*args)

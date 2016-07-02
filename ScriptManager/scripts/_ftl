@@ -1,0 +1,1 @@
+new File(new File(_setting_, "template"), "${args[0]}.ftl").getText("UTF-8")

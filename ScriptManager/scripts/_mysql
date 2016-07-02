@@ -1,0 +1,14 @@
+import java.sql.DriverManager
+import groovy.sql.Sql
+
+def mysql(host, db, user, password, Closure cl) {
+	def url = "jdbc:mysql://${host}:3306/${db}"
+	def sql = Sql.newInstance(url, user, password, "com.mysql.jdbc.Driver")
+	try {
+		cl.doCall(sql)
+	} finally {
+		sql.close()
+	}
+}
+
+mysql(*args[0..3], args[-1])

@@ -1,0 +1,27 @@
+def _cp(from, to) {
+	if(from.directory) {
+		to.mkdir()
+		from.eachFile {sub->
+			_cp(sub, new File(to, sub.name))
+		}
+	} else if(from.file) {
+		to.withOutputStream {output->
+			from.withInputStream() {input->
+				output << input
+			}
+		}
+	}
+}
+
+def from = args[0]
+def to = args[1]
+
+if(from instanceof CharSequence) {
+	from = new File(from)
+}
+
+if(to instanceof CharSequence) {
+	to = new File(to)
+}
+
+_cp(from ,to)

@@ -1,0 +1,41 @@
+def left = new File(args[0])
+def right = new File(args[1])
+
+if(!left.isDirectory() || !right.isDirectory()) {
+	throw new Exception("パラメータで指定されたディレクトリが存在しません。")
+}
+
+// 共通のファイルを保存する
+def result = new File(left.parent, "共通(${left.name}＆${right.name})")
+
+if(result.exists()) {
+	throw new Exception("前回の差分結果を削除してください。")
+}
+
+if(!result.mkdir()) {
+	throw new Exception("共通ファイルのディレクトリ作成失敗：" + result)
+}
+
+def sub(left ,right, rmDir, baseLeft, baseResult) {
+	left.eachFile {
+		def itemR = new File(right, it.name)
+		if(it.isFile()) {
+			if(itemR.isFile() && tools.md5.MD5Utils.isSame(it, itemR)) {
+				def dest = new File(baseResult, it.parentFile.path - baseLeft)
+				dest.mkdirs()
+				if(!it.renameTo(new File(dest, it.name))) {
+					println "ファイル移動失敗：${it}"
+				}
+			}
+		} else if(itemR.isDirectory()) {
+			sub(it, itemR, true, baseLeft, baseResult)
+		}
+	}
+	if(rmDir && right.name == left.name && left.list().length == 0) {
+		def dest = new File(baseResult, left.parentFile.path - baseLeft)
+		new File(dest, left.name).mkdirs()
+		left.delete()
+	}
+}
+
+sub(left, right, false, left.path, result.path)

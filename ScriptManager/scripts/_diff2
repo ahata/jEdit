@@ -1,0 +1,19 @@
+if(args.length == 2) {
+	println ">>>>>>>>>>>>"
+	(args[0] - args[1]).each {
+		println it
+	}
+	println "<<<<<<<<<<<<"
+	(args[1] - args[0]).each {
+		println it
+	}
+} else {
+	println ">>>>>>>>>>>>"
+	(_1 - _2).each {
+		println it
+	}
+	println "<<<<<<<<<<<<"
+	(_2 - _1).each {
+		println it
+	}
+}

@@ -1,0 +1,9 @@
+_1.each {sql->
+	mch = sql =~ /(.+)Parameters: \[(.+)\]/
+
+	s = mch[0][1]
+	p = mch[0][2].split(/\s*,\s*/).each {
+	    s = s.replaceFirst("\\?", "'${it}'")
+	}
+	println s
+}

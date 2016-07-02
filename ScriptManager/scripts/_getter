@@ -1,0 +1,12 @@
+macro = '''\
+<#macro getter property>
+	/**
+	 * ${property.desc}を取得します。
+	 * @return ${property.desc}
+	 */
+	public ${property.type} get${property.name?cap_first}() {
+		return ${property.name};
+	}
+</#macro>
+<@getter property=pt />'''
+_tpl(macro.replaceAll('\n', '\r\n'), [pt:args[0]]).toString()

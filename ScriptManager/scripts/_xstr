@@ -1,0 +1,9 @@
+def xstr(str){
+	def mch = str =~ "((\"[^\"]*\")|('[^']*'))"
+	mch.collect {g0, a,b,c->
+		a
+	}
+}
+
+xstr(_1.join("\r\n"))
+

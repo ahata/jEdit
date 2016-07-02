@@ -1,0 +1,61 @@
+class Node {
+	def name
+	def value
+	def childList
+}
+
+class OOMBuilder extends BuilderSupport {
+	def Node top
+	
+    protected void setParent(Object parent, Object child){
+    	parent.childList.add(child)
+    }
+    
+    protected Object createNode(Object name){
+    	new Node(name:name, value:"", childList:[])
+    }
+    
+    protected Object createNode(Object name, Object value){
+        new Node(name:name, value:value, childList:[])
+    }
+    
+    protected Object createNode(Object name, Map attributes){
+    	null
+    }
+    
+    protected Object createNode(Object name, Map attributes, Object value){
+        null
+    }
+    
+    protected void nodeCompleted(Object parent, Object node) {
+    	top = node
+    }
+
+    def convert(node, ident) {
+		def result = new StringBuffer()
+		def space = "  " * ident
+		result.append(space).append("<${node.name}>").append(node.value)
+		node.childList.each {
+			def sub = convert(it, ident + 1)
+			result.append('\n').append(sub)
+		}
+		if(node.childList.size() > 0) {
+			result.append('\n').append(space)
+		}
+		result.append("</${node.name}>")
+		return result
+	}
+	
+	String toString() {
+		convert(top, 0)
+	}
+}
+
+oom = new OOMBuilder()
+
+def cl = args[0]
+cl.delegate = oom
+cl.doCall()
+
+return oom
+

@@ -1,0 +1,18 @@
+def _cp2(def f, def base, def destBase) {
+	def file = new File(destBase, f.path.substring(base.path.length() + 1))
+	file.parentFile.mkdirs()
+	_cp(f, file)
+}
+
+assert args.length == 3
+if(args[0] instanceof CharSequence) {
+	args[0] = new File(args[0])
+}
+if(args[1] instanceof CharSequence) {
+	args[1] = new File(args[1])
+}
+if(args[2] instanceof CharSequence) {
+	args[2] = new File(args[2])
+}
+
+_cp2(args[0], args[1], args[2])

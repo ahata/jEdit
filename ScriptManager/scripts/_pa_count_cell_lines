@@ -1,0 +1,39 @@
+/**
+ * PA自立支援システムWord仕様書に１つテーブルセル修正された行数
+ * <p>
+ */
+def countLine(cell) {
+	def lines = 0
+	cell.paragraphs.each {p->
+		if(p.text.trim().length() == 0) {
+			// 空行除く
+			return
+		}
+		def ismod = splitByColor(p).find {
+			// 赤文字の行のみカウント
+			if(it.color == 6) {
+				// 区分のみ修正した場合スキップ
+				if(it.text ==~ 'FJ[0-9A-Z]{6}') {
+					false
+				} else {
+					true
+				}
+			}
+		}
+		if(ismod) {
+			lines++
+		}
+	}
+	lines
+}
+
+def splitByColor(p) {
+	_split(p.characterRuns) {a, b->
+		a.color == b.color
+	}.collect {
+		[text:it.collect {it.text}.join(), color:it[0].color]
+	}
+}
+
+countLine(args[0])
+

@@ -1,0 +1,38 @@
+import oracle.AQ.*
+
+if(args.length < 6) {
+	throw new IllegalArgumentException("""\
+host = args[0]
+db = args[1]
+user = args[2]
+password = args[3]
+queueName = args[4]
+content = args[5]
+inCorr = args[6]
+""")
+}
+
+Class.forName("oracle.AQ.AQOracleDriver")
+
+def schema = args[2] // ユーザ名と同じ
+def queueName = args[4]
+def content = args[5]
+def inCorr = args.length >= 7? args[6] : "-"
+
+_oracle(*args[0..3]) {sql->
+	AQSession session = AQDriverManager.createAQSession(sql.connection)
+	try {
+		AQQueue queue = session.getQueue(schema, queueName)
+		System.out.println("キューテーブル名：" + queue.getQueueTableName())
+		AQMessage message = queue.createMessage()
+		AQMessageProperty msgProp = new AQMessageProperty()
+		msgProp.setCorrelation(inCorr)
+		message.setMessageProperty(msgProp)
+		message.getRawPayload().setStream(content, content.length)
+		// メッセージをキューに登録します。
+		queue.enqueue(new AQEnqueueOption(), message)
+	} finally {
+		session.close()
+	}
+}
+
